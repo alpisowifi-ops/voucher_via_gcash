@@ -58,9 +58,16 @@ if(isset($_GET['logout'])){
 
 // ================= ACTIONS =================
 
-// CHANGE PASSWORD
-if(isset($_POST['new_pass'])){
-    file_put_contents($pass_file, password_hash($_POST['new_pass'], PASSWORD_DEFAULT));
+// CHANGE PASSWORD (SAFE)
+if(isset($_POST['new_pass']) && isset($_POST['current_pass'])){
+    $saved = file_get_contents($pass_file);
+
+    if(password_verify($_POST['current_pass'], $saved)){
+        file_put_contents($pass_file, password_hash($_POST['new_pass'], PASSWORD_DEFAULT));
+        $msg = "✅ Password updated!";
+    } else {
+        $msg = "❌ Wrong current password!";
+    }
 }
 
 // UPLOAD QR
@@ -142,6 +149,22 @@ input,textarea,select{width:100%;padding:10px;margin-top:5px;border-radius:8px;b
 
 <h2>🔥 ADMIN PANEL</h2>
 <a href="?logout=1" style="color:red;">Logout</a>
+
+<!-- CHANGE PASSWORD -->
+<div class="card">
+<h3>🔑 Change Password</h3>
+
+<form method="post">
+<input type="password" name="current_pass" placeholder="Current Password" required>
+<input type="password" name="new_pass" placeholder="New Password" required>
+<button>Update Password</button>
+</form>
+
+<?php if(isset($msg)): ?>
+<p><?= $msg ?></p>
+<?php endif; ?>
+
+</div>
 
 <!-- EARNINGS -->
 <div class="card">

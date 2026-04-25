@@ -1,71 +1,82 @@
 #!/data/data/com.termux/files/usr/bin/bash
 
 clear
-echo "🔥 INSTALLING PISO WIFI SYSTEM (FULL AUTO FINAL)..."
+echo "🔥 INSTALLING PISO WIFI SYSTEM..."
 
-# UPDATE SYSTEM
-pkg update -y && pkg upgrade -y
+pkg update -y
+pkg upgrade -y
 
-# INSTALL DEPENDENCIES
-pkg install php git tmux termux-api termux-services iproute2 -y
+pkg install php git tmux termux-api termux-services -y
 
-# STORAGE (OPTIONAL PERMISSION)
-echo "📂 Setting storage permission..."
-termux-setup-storage 2>/dev/null
+echo "📂 Setting storage..."
+termux-setup-storage
 
-# REMOVE OLD INSTALL
+sleep 3
+
+# USE HOME INSTEAD OF SDCARD (NO PERMISSION ISSUE)
+mkdir -p ~/htdocs
+
+echo "📥 Cloning project..."
 rm -rf ~/htdocs
-
-# CLONE PROJECT
-echo "📥 Downloading project..."
 git clone https://github.com/alpisowifi-ops/voucher_via_gcash.git ~/htdocs
 
-cd ~/htdocs || exit
+cd ~/htdocs
 
-# FIX PERMISSIONS
-chmod -R 777 .
+# 🔐 GENERATE RANDOM API NAME + KEY
+API_NAME=$(tr -dc a-z0-9 </dev/urandom | head -c 6)
+SECRET_KEY=$(tr -dc a-z0-9 </dev/urandom | head -c 10)
 
-# AUTO START ON BOOT
+mv api.php ${API_NAME}.php
+
+# 🔐 PATCH API (ADD SECRET KEY CHECK)
+sed -i "1i<?php if(!isset(\$_GET['key']) || \$_GET['key'] !== '$SECRET_KEY'){ die(json_encode(['status'=>'error','msg'=>'Unauthorized'])); } ?>" ${API_NAME}.php
+
 echo "⚙️ Setting auto-start..."
+
 mkdir -p ~/.termux/boot
 
-cat > ~/.termux/boot/start.sh << 'EOF'
+cat > ~/.termux/boot/start.sh << EOF
 #!/data/data/com.termux/files/usr/bin/sh
 
 termux-wake-lock
 cd ~/htdocs
-
-# kill old session if exists
-tmux kill-session -t wifi 2>/dev/null
-
-# start server in background
-tmux new-session -d -s wifi "php -S 0.0.0.0:8080"
+tmux new-session -d "php -S 0.0.0.0:8080"
 EOF
 
 chmod +x ~/.termux/boot/start.sh
 
-# START SERVER NOW
-echo "🚀 Starting server..."
-tmux kill-session -t wifi 2>/dev/null
-tmux new-session -d -s wifi "php -S 0.0.0.0:8080"
+# 🚀 START SERVER NOW
+tmux new-session -d "php -S 0.0.0.0:8080"
 
-# GET IP (SAFE)
-IP=$(ip route get 1 2>/dev/null | awk '{print $7;exit}')
+# GET IP (FIX NO IP COMMAND ERROR)
+IP=$(ifconfig 2>/dev/null | grep -oE 'inet (192\.168\.[0-9]+\.[0-9]+)' | awk '{print $2}' | head -n1)
 
 if [ -z "$IP" ]; then
 IP="localhost"
 fi
 
-# DONE
-echo ""
+clear
+
 echo "✅ INSTALL COMPLETE!"
-echo "🌐 Open this in browser:"
+echo ""
+echo "🌐 OPEN:"
 echo "👉 http://$IP:8080"
 echo ""
-echo "🔐 Admin Panel:"
+echo "🔐 ADMIN:"
 echo "👉 http://$IP:8080/admin.php"
 echo "👉 Password: admin123"
 echo ""
-echo "⚡ Server running in background (tmux)"
-echo "⚡ Auto start on reboot enabled"
+
+echo "📲 USE THIS CODE FOR MACRODROID 👇"
+echo "===================================="
+echo "URL:"
+echo "http://$IP:8080/${API_NAME}.php?amount=10&key=$SECRET_KEY"
 echo ""
+echo "Method: GET"
+echo "===================================="
+
+echo ""
+echo "⚡ SERVER RUNNING (BACKGROUND)"
+echo "⚡ AUTO START ON REBOOT ENABLED"
+echo ""
+echo "⚠️ DO NOT SHARE API LINK!"
